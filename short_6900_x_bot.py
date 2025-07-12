@@ -7,8 +7,8 @@ from datetime import datetime
 from telegram import Bot
 
 # === CONFIG ===
-BOT_TOKEN = "7890317349:AAFubUqZ8WhnYdcKJ8H-hsYCTBKN8a8UDi0"
-CHAT_ID = "1274696171"
+BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+CHAT_ID = "YOUR_CHAT_ID"
 SCAN_INTERVAL = 300  # 5 minutes
 
 # === SCRAPER ===

@@ -1,4 +1,3 @@
-# SHORT6900X
 # README.md
 
 ## 📦 SHORT6900X Bot
@@ -45,6 +44,19 @@ cd short6900x
 ### ⚠️ Notes
 - Check Quanto API endpoint before running — the URL used is a placeholder.
 - Bot scans every 5 minutes (adjustable).
+
+### 📉 Suggested Shorting Strategy
+The **SHORT6900X bot itself does not execute trades — it alerts you when a new meme coin is listed and how much it has pumped since launch.**
+
+✅ Example manual shorting strategy:
+- Look for tokens that have pumped **+100% to +500% in < 24 hours**
+- Check market cap > $1M to ensure liquidity
+- Monitor volume: short when momentum slows down (volume decreasing on lower timeframes)
+- Enter short gradually to avoid volatility spikes
+- Set tight stop-loss above recent high
+- Target a 30–70% retracement on overextended pumps
+
+The goal: **capitalize on meme coins that quickly overextend after launch, betting they’ll mean-revert as initial hype fades**. This strategy works because many new meme coins experience speculative hype right after listing, often pumping rapidly as early buyers rush in — but without fundamental value or sustained demand, these tokens tend to crash soon after. By shorting at or near the peak of this initial surge, traders aim to profit from the inevitable correction.
 
 ---
 

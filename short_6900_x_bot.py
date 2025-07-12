@@ -1,66 +1,69 @@
-# SHORT6900X: Short Squeeze Scanner Bot for Telegram
-# ================================================
-# Scans low-float stocks with high short interest and volume surges
-# Sends 3x/day alerts to Telegram with squeeze alerts
+# === SHORT6900X BOT ===
+# Minimal working starter code
 
-import requests
-import pandas as pd
-from datetime import datetime
 import time
+import requests
+from datetime import datetime
+from telegram import Bot
 
-# --- USER CONFIG ---
-TELEGRAM_TOKEN = "7890317349:AAFubUqZ8WhnYdcKJ8H-hsYCTBKN8a8UDi0"
-TELEGRAM_CHAT_ID = "1274696171"
-MAX_ALERTS_PER_RUN = 5
-ALERT_TIMES = ["09:00", "12:00", "15:00"]
+# === CONFIG ===
+BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+CHAT_ID = "YOUR_CHAT_ID"
+SCAN_INTERVAL = 300  # 5 minutes
 
-# --- MOCK DATA (Replace with real API later) ---
-stocks = [
-    {"ticker": "HUDI", "float": 2.8, "short_float": 29, "volume": 3200000, "avg_volume": 700000, "price": 4.21, "market_cap": 95, "last_alerted": None},
-    {"ticker": "TOP", "float": 0.9, "short_float": 34, "volume": 1800000, "avg_volume": 500000, "price": 6.40, "market_cap": 70, "last_alerted": None},
-    {"ticker": "JZXN", "float": 3.0, "short_float": 42, "volume": 5300000, "avg_volume": 900000, "price": 2.87, "market_cap": 55, "last_alerted": None},
-    {"ticker": "BRSH", "float": 6.2, "short_float": 24, "volume": 1600000, "avg_volume": 600000, "price": 1.95, "market_cap": 40, "last_alerted": None},
-    {"ticker": "XYZ", "float": 4.2, "short_float": 18, "volume": 900000, "avg_volume": 700000, "price": 3.20, "market_cap": 30, "last_alerted": None}
-]
+# === SCRAPER ===
+QUANTO_LISTINGS_URL = "https://api.quanto.fun/v1/listings"  # Example, inspect network to confirm actual endpoint
 
-# --- SEND ALERT TO TELEGRAM ---
-def send_telegram(msg):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"}
-    requests.post(url, data=payload)
+last_seen_tokens = set()
 
-# --- FORMAT ALERT ---
-def format_alert(stock):
-    float_tag = "🧨 Ultra Low Float" if stock["float"] < 1 else "🔥 Very Low Float" if stock["float"] <= 5 else "✅ Low Float"
-    float_rotated = round(stock["volume"] / (stock["float"] * 1_000_000), 1)
-    alert = f"\n🧨 *Squeeze Alert*: ${stock['ticker']}\n"
-    alert += f"{float_tag} ({stock['float']}M)\n"
-    alert += f"📈 Short Float: {stock['short_float']}%\n"
-    alert += f"💥 Volume: {stock['volume']:,} (avg {stock['avg_volume']:,})\n"
-    alert += f"🔁 Float Rotation: {float_rotated}x\n"
-    alert += f"💰 Price: ${stock['price']} | Cap: ${stock['market_cap']}M"
-    if float_rotated > 3:
-        alert += f"\n⚠️ *Warning*: Float rotated {float_rotated}x — squeeze may exhaust soon"
-    return alert
+def get_new_listings():
+    try:
+        resp = requests.get(QUANTO_LISTINGS_URL)
+        data = resp.json()
+        listings = []
+        for token in data.get('tokens', []):
+            symbol = token.get('symbol')
+            token_id = token.get('id')
+            if token_id not in last_seen_tokens:
+                last_seen_tokens.add(token_id)
+                listings.append({
+                    'symbol': symbol,
+                    'price': float(token.get('current_price', 0)),
+                    'initial_price': float(token.get('initial_price', 0)),
+                    'market_cap': float(token.get('market_cap', 0)),
+                    'listed_at': datetime.fromtimestamp(token.get('listed_at', time.time())),
+                })
+        return listings
+    except Exception as e:
+        print(f"Error fetching listings: {e}")
+        return []
 
-# --- MAIN SCANNER FUNCTION ---
-def run_scanner():
-    now = datetime.now().strftime("%H:%M")
-    if now not in ALERT_TIMES:
-        return
+# === FORMAT MESSAGE ===
+def format_message(token):
+    pct_change = 0
+    if token['initial_price'] > 0:
+        pct_change = ((token['price'] - token['initial_price']) / token['initial_price']) * 100
+    
+    time_since = datetime.utcnow() - token['listed_at']
+    minutes_since = int(time_since.total_seconds() // 60)
 
-    alerts = []
-    for stock in stocks:
-        if stock["float"] <= 10 and stock["short_float"] > 20 and stock["volume"] > 2 * stock["avg_volume"]:
-            alerts.append(stock)
+    mc_text = f"Market Cap: ${token['market_cap'] / 1_000_000:.2f}M" if token['market_cap'] else "Market Cap: N/A"
 
-    alerts = sorted(alerts, key=lambda x: x["short_float"], reverse=True)[:MAX_ALERTS_PER_RUN]
+    return (
+        f"⚡️ NEW LISTING on Quanto\n"
+        f"Token: ${token['symbol']}\n"
+        f"Pump: {pct_change:.2f}% 🚀\n"
+        f"Time since listing: {minutes_since}m\n"
+        f"{mc_text}"
+    )
 
-    if alerts:
-        send_telegram(f"📡 *SHORT6900X Scanner* — {now} Update")
-        for stk in alerts:
-            send_telegram(format_alert(stk))
+# === MAIN LOOP ===
+bot = Bot(token=BOT_TOKEN)
 
-# --- ENTRY POINT ---
-if __name__ == "__main__":
-    run_scanner()
+while True:
+    new_tokens = get_new_listings()
+    for token in new_tokens:
+        msg = format_message(token)
+        bot.send_message(chat_id=CHAT_ID, text=msg)
+        print(f"Sent alert for {token['symbol']}")
+    time.sleep(SCAN_INTERVAL)
